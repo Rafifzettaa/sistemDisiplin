@@ -413,7 +413,8 @@
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    mode: 'no-cors'
                 });
 
                 if (!response.ok) {
@@ -507,7 +508,8 @@
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify({ id: id })
+                    body: JSON.stringify({ id: id }),
+                    mode: 'no-cors'
                 });
 
                 if (!response.ok) {
