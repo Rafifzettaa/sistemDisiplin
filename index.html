@@ -376,6 +376,7 @@
                 fetchData();
             } catch (err) {
                 showToast('error', 'Gagal menyimpan data: ' + err.message);
+                fetchData();
             }
         }
 
@@ -389,7 +390,7 @@
                 }
 
                 const data = await response.json();
-                const found = data.find(r => r.id == id);
+                const found = data.data.find(r => r.id == id);
 
                 if (found) {
                     document.getElementById("recordId").value = found.id;
