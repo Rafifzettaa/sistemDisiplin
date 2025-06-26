@@ -381,22 +381,41 @@
 
         async function editData(id) {
             try {
-                const data = await sendToServer("get");
+                showToast('info', 'Memuat data untuk edit...');
+
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error('Gagal memuat data');
+                }
+
+                const data = await response.json();
                 const found = data.find(r => r.id == id);
+
                 if (found) {
                     document.getElementById("recordId").value = found.id;
-                    document.getElementById("nama").value = found.nama;
-                    document.getElementById("divisi").value = found.divisi;
-                    document.getElementById("jenis").value = found.jenis;
-                    document.getElementById("tanggal").value = found.tanggal.split('T')[0];
-                    document.getElementById("waktu").value = formatTime(found.waktu);
-                    document.getElementById("keterangan").value = found.keterangan;
-                    showToast('success', 'Data siap diedit');
+                    document.getElementById("nama").value = found.nama || '';
+                    document.getElementById("divisi").value = found.divisi || '';
+                    document.getElementById("jenis").value = found.jenis || 'Hadir';
+                    document.getElementById("tanggal").value = found.tanggal ? found.tanggal.split('T')[0] : '';
+                    document.getElementById("waktu").value = formatTime(found.waktu) || '';
+                    document.getElementById("keterangan").value = found.keterangan || '';
+
+                    // Update UI untuk mode edit
+                    document.getElementById("formTitle").textContent = "Edit Data Disiplin";
+                    document.getElementById("submitBtn").classList.add("hidden");
+                    document.getElementById("updateBtn").classList.remove("hidden");
+                    document.getElementById("cancelBtn").classList.remove("hidden");
+
+                    // Scroll ke form
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                    showToast('success', 'Data siap untuk diedit');
                 } else {
-                    showToast('error', 'Data tidak ditemukan');
+                    throw new Error('Data tidak ditemukan');
                 }
-            } catch (err) {
-                showToast('error', 'Gagal ambil data: ' + err.message);
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Gagal memuat data untuk edit: ' + error.message);
             }
         }
 
