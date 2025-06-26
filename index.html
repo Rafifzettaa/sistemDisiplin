@@ -414,7 +414,7 @@
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify(payload),
-                    mode: 'no-cors'
+                    mode: 'cors'
                 });
 
                 if (!response.ok) {
@@ -509,7 +509,7 @@
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({ id: id }),
-                    mode: 'no-cors'
+                    mode: 'cors'
                 });
 
                 if (!response.ok) {
