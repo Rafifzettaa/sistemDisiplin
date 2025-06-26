@@ -239,7 +239,7 @@
     </div>
 
     <script>
-        const endpoint = "https://script.google.com/macros/s/AKfycby2q5-EI8R1qRIb8PS7PQjX5ziMkCVT6D1mrIvMuxxix3ZOqw0Bthwxs6Wd4E4WNcjS/exec";
+        const endpoint = "https://script.google.com/macros/s/AKfycbz2QiFi-dJBc6Qy9xeOoMI9uq_sODJIQPUb6Ly4OAL1kI4coRw7Ddc__AzEsSxUFnsu/exec";
 
         async function sendToServer(action, data = {}) {
             const payload = { action, ...data };
@@ -248,7 +248,7 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
-                    mode: "cors"
+                    mode: "no-cors"
                 });
                 return await response.json();
             } catch (err) {
@@ -294,11 +294,34 @@
         async function fetchData() {
             try {
                 showToast('info', 'Memuat data...');
-                const data = await sendToServer("get");
+
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error('Gagal memuat data');
+                }
+
+                let data = await response.json();
+
+                // Ensure data is always an array
+                if (!Array.isArray(data)) {
+                    if (data && typeof data === 'object' && data.data && Array.isArray(data.data)) {
+                        data = data.data;
+                    } else {
+                        data = [];
+                    }
+                }
+
                 const tbody = document.getElementById("dataBody");
                 tbody.innerHTML = "";
-                if (!data.length) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">Tidak ada data</td></tr>`;
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                                Tidak ada data yang ditemukan
+                            </td>
+                        </tr>
+                    `;
                     return;
                 }
                 data.forEach((row, index) => {
@@ -321,8 +344,8 @@
                 <td class="px-6 py-4">${formatTime(row.waktu)}</td>
                 <td class="px-6 py-4 text-sm text-gray-500" title="${row.keterangan || ''}">${row.keterangan || '-'}</td>
                 <td class="px-6 py-4 text-right">
-                    <button onclick="editData('${row.ID}')" class="text-blue-600"><i class="fas fa-edit"></i></button>
-                    <button onclick="confirmDelete('${row.ID}')" class="text-red-600"><i class="fas fa-trash-alt"></i></button>
+                    <button onclick="editData('${row.id}')" class="text-blue-600"><i class="fas fa-edit"></i></button>
+                    <button onclick="confirmDelete('${row.id}')" class="text-red-600"><i class="fas fa-trash-alt"></i></button>
                 </td>`;
                     tbody.appendChild(tr);
                 });
@@ -331,27 +354,138 @@
                 showToast('error', 'Gagal memuat data: ' + err.message);
             }
         }
+        async function submitForm() {
+            const id = document.getElementById("recordId").value;
+            const payload = {
+                id: id || null,
+                nama: document.getElementById("nama").value.trim(),
+                divisi: document.getElementById("divisi").value,
+                jenis: document.getElementById("jenis").value,
+                tanggal: document.getElementById("tanggal").value,
+                waktu: document.getElementById("waktu").value,
+                keterangan: document.getElementById("keterangan").value.trim()
+            };
+            if (!payload.nama || !payload.divisi || !payload.tanggal || !payload.waktu) {
+                showToast('error', 'Mohon lengkapi semua field.');
+                return;
+            }
+            try {
+                const result = await sendToServer(id ? "update" : "create", payload);
+                showToast('success', id ? 'Data diperbarui' : 'Data disimpan');
+                resetForm();
+                fetchData();
+            } catch (err) {
+                showToast('error', 'Gagal menyimpan data: ' + err.message);
+            }
+        }
+
+        async function editData(id) {
+            try {
+                const data = await sendToServer("get");
+                const found = data.find(r => r.id == id);
+                if (found) {
+                    document.getElementById("recordId").value = found.id;
+                    document.getElementById("nama").value = found.nama;
+                    document.getElementById("divisi").value = found.divisi;
+                    document.getElementById("jenis").value = found.jenis;
+                    document.getElementById("tanggal").value = found.tanggal.split('T')[0];
+                    document.getElementById("waktu").value = formatTime(found.waktu);
+                    document.getElementById("keterangan").value = found.keterangan;
+                    showToast('success', 'Data siap diedit');
+                } else {
+                    showToast('error', 'Data tidak ditemukan');
+                }
+            } catch (err) {
+                showToast('error', 'Gagal ambil data: ' + err.message);
+            }
+        }
+
+        async function confirmDelete(id) {
+            const result = await Swal.fire({
+                title: 'Yakin hapus?',
+                text: 'Data tidak bisa dikembalikan!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, hapus!'
+            });
+            if (result.isConfirmed) await deleteData(id);
+        }
+
+        async function deleteData(id) {
+            try {
+                await sendToServer("delete", { id });
+                showToast('success', 'Data berhasil dihapus');
+                fetchData();
+            } catch (err) {
+                showToast('error', 'Gagal hapus data: ' + err.message);
+                fetchData();
+            }
+        }
+
+        function resetForm() {
+            document.getElementById("recordId").value = "";
+            document.getElementById("nama").value = "";
+            document.getElementById("divisi").value = "";
+            document.getElementById("jenis").value = "Hadir";
+            document.getElementById("keterangan").value = "";
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('tanggal').value = today;
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('waktu').value = `${hours}:${minutes}`;
+            showToast('info', 'Formulir direset');
+        }
 
         function exportToExcel() {
-            const table = document.querySelector("table");
-            let html = table.outerHTML.replace(/ /g, '%20');
-            const filename = 'rekap_disiplin.xls';
-            const uri = 'data:application/vnd.ms-excel,' + html;
-            const link = document.createElement('a');
-            link.href = uri;
-            link.download = filename;
-            link.click();
+            const table = document.querySelector("table").cloneNode(true);
+            for (let row of table.rows) {
+                if (row.cells.length === 8) {
+                    row.deleteCell(7);
+                    row.deleteCell(0);
+                }
+            }
+            const workbook = XLSX.utils.table_to_book(table, { sheet: "Rekap Disiplin" });
+            XLSX.writeFile(workbook, "rekap_disiplin.xlsx");
         }
 
         function printData() {
-            const printContents = document.querySelector("table").outerHTML;
-            const originalContents = document.body.innerHTML;
-            document.body.innerHTML = printContents;
-            window.print();
-            document.body.innerHTML = originalContents;
-            location.reload();
+            const table = document.querySelector("table").cloneNode(true);
+            for (let row of table.rows) {
+                if (row.cells.length === 8) {
+                    row.deleteCell(7);
+                    row.deleteCell(0);
+                }
+            }
+            const wrapper = document.createElement("div");
+            wrapper.style.padding = "20px";
+            wrapper.innerHTML = `
+        <h2 style="text-align:center;margin-bottom:20px;">Rekap Disiplin Karyawan</h2>`;
+            wrapper.appendChild(table);
+            const opt = {
+                margin: 0.5,
+                filename: 'rekap_disiplin.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(wrapper).set(opt).save();
         }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('tanggal').value = today;
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('waktu').value = `${hours}:${minutes}`;
+            fetchData();
+        });
     </script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 
 </body>
